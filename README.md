@@ -4,3 +4,4 @@ A scratchbuilt script that emulates the old Photoshop Extension "Cut and Slice M
 <a href="https://www.youtube.com/watch?v=U438amcJnQU">ReCut and ReSlice Tutorial</a>
 
 <img src="UI.jpg">
+
