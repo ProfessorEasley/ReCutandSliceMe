@@ -31,7 +31,7 @@ var doc = activeDocument;
 var originPath = activeDocument.path;
 // Get document name, without extension
 var fname = doc.name.match(/(.*)\.[^\.]+$/)[1];
-var versionNum = '1.0';
+var versionNum = '1.1';
 var outFolder = new Folder(originPath + "/out");
 var iosFolder = new Folder(originPath + "/out/" + fname + "_iPhone_assets");
 var androidFolder = new Folder(originPath + "/out/" + fname + "_Android_assets");
@@ -817,6 +817,33 @@ function progress(steps) {
     w.show();
 }
 
+function noExportWarning() {
+    var warnDlg = new Window("dialog", "Warning");
+    
+    warnDlg.add("statictext", undefined, "No layers were exported. Please ensure that the name of layers or layer groups you want exported end with an '@' symbol.");
+    warnDlg.add("statictext", undefined, "Refer to the following documentation for more details:");
+    
+    var linkText = warnDlg.add("statictext", undefined, "https://github.com/ProfessorEasley/ReCutandSliceMe/blob/main/Original%20CutAndSliceMe%20Instructions.pdf");
+    linkText.graphics.foregroundColor = linkText.graphics.newPen(warnDlg.graphics.PenType.SOLID_COLOR, [0, 1, 1], 1);
+    var helpUrl = "https://github.com/ProfessorEasley/ReCutandSliceMe/blob/main/Original%20CutAndSliceMe%20Instructions.pdf";
+    linkText.helpTip = helpUrl;
+    
+    linkText.onClick = function() {
+        if (File.fs === "Macintosh") {
+            app.system("open " + helpUrl);
+        } else {
+            app.system("start " + helpUrl);
+        }
+    };
+
+    var closeButton = warnDlg.add("button", undefined, "OK", { name: "ok" });
+    closeButton.onClick = function() {
+        warnDlg.close();
+    };
+
+    warnDlg.show();
+}
+
 // cutAll onClick listener
 cutAll.onClick = function () {
     progress(100);
@@ -844,7 +871,7 @@ cutAll.onClick = function () {
 
     progress.message("Exporting files");
     lyrInfo += scan(doc);
-
+   
     // Resumes back to original ruler units
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
@@ -853,7 +880,16 @@ cutAll.onClick = function () {
     }
 
     progress.close();
-    alert('Done!');
+   
+    var success = true;
+    if (lyrInfo.length === 0) {
+        noExportWarning();
+        success = false;
+    }
+    
+    if (success) {
+        alert('Done!');
+    }
 
     app.activeDocument.activeHistoryState = savedState;
 
@@ -905,7 +941,16 @@ cutSubgroups.onClick = function () {
     }
 
     progress.close();
-    alert('Done!');
+    
+    var success = true;
+    if (lyrInfo.length === 0) {
+        noExportWarning();
+        success = false;
+    }    
+    
+    if (success) {
+        alert('Done!');
+    }
 
     app.activeDocument.activeHistoryState = savedState;
 
