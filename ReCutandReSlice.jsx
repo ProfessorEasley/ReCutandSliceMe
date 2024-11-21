@@ -31,7 +31,7 @@ var doc = activeDocument;
 var originPath = activeDocument.path;
 // Get document name, without extension
 var fname = doc.name.match(/(.*)\.[^\.]+$/)[1];
-var versionNum = '1.1';
+var versionNum = '1.2';
 var outFolder = new Folder(originPath + "/out");
 var iosFolder = new Folder(originPath + "/out/" + fname + "_iPhone_assets");
 var androidFolder = new Folder(originPath + "/out/" + fname + "_Android_assets");
@@ -65,7 +65,7 @@ function exportAll() {
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
     if (saveLyrInfo && lyrInfo != "") {
-        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, originPath + "/out/");
+        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     app.activeDocument.activeHistoryState = savedState;
@@ -95,7 +95,7 @@ function exportSelected() {
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
     if (saveLyrInfo && lyrInfo != "") {
-        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, originPath + "/out/");
+        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     app.activeDocument.activeHistoryState = savedState;
@@ -149,7 +149,7 @@ function exportSubgroups() {
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
     if (saveLyrInfo && lyrInfo != "") {
-        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, originPath + "/out/");
+        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     app.activeDocument.activeHistoryState = savedState;
@@ -249,6 +249,36 @@ function scan(canvas) {
     }
 
     return lyrInfo;
+}
+
+function getAssetsOutputFolder() {
+    if (platform.indexOf('ios') != -1) {
+        return iosFolder;
+    }
+
+    if (platform.indexOf('android') != -1) {
+        if (resolution == undefined || resolution.indexOf('xhdpi') != -1) {
+            return androidXHDPIFolder;
+        }
+
+        if (resolution.indexOf('hdpi') != -1) {
+            return androidHDPIFolder;
+        }
+
+        if (resolution.indexOf('mdpi') != -1) {
+            return androidMDPIFolder;
+        }
+
+        if (resolution.indexOf('ldpi') != -1) {
+            return androidLDPIFolder;
+        }
+    }
+
+    if (platform.indexOf('macos') != -1) {
+        return macFolder;
+    }
+
+    return null;
 }
 
 // resize asset into corresponding platform's resolution and save it as png file
@@ -462,7 +492,7 @@ function writeFile(lyrInfo, path) {
     }
 
     try {
-        var f = new File(path + "/" + fname + "_exported_assets_info.txt");
+        var f = new File(path + "/exported_assets_info.txt");
         f.remove();
         f.open('a');
         f.linefeed = fileLineFeed;
@@ -876,7 +906,7 @@ cutAll.onClick = function () {
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
     if (saveLyrInfo && lyrInfo != "") {
-        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, originPath + "/out/");
+        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     progress.close();
@@ -937,7 +967,7 @@ cutSubgroups.onClick = function () {
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
     if (saveLyrInfo && lyrInfo != "") {
-        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, originPath + "/out/");
+        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     progress.close();
@@ -992,7 +1022,7 @@ cutSelected.onClick = function () {
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
     if (saveLyrInfo && lyrInfo != "") {
-        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, originPath + "/out/");
+        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     progress.close();
