@@ -7,6 +7,8 @@ import argparse
 import os.path
 import webbrowser
 import glob
+import json
+import re
 from PIL import Image
 
 if __name__ == '__main__':
@@ -25,7 +27,6 @@ if __name__ == '__main__':
     max_y = -float('inf')
     assets = []
     with open(info_path, 'r') as f:
-        is_first = True
         while True:
             line = f.readline()
             if line is None or len(line) == 0:
@@ -33,22 +34,18 @@ if __name__ == '__main__':
             line = line.strip()
             if len(line) == 0:
                 continue
-            if is_first:
-                is_first = False
-                continue
-            asset_name = line[:line.find(':')]
-            pos_str = line[line.find(':')+1:]
+            elem = json.loads(line)
+            asset_name = elem['name']
             name = asset_name.strip().replace(' ', '-')
-            pos_str = pos_str.strip()
-            arr = pos_str.split(' ')
-            pos_x = float(arr[2][1:-1])
-            pos_y = float(arr[3][:-2])
-            bounds_w = float(arr[5][:-3])
-            bounds_h = float(arr[7][:-3])
+            pos_x = elem['x']
+            pos_y = elem['y']
+            bounds_w = elem['width']
+            bounds_h = elem['height']
             min_x = min(min_x, pos_x - bounds_w/2.0)
             max_x = max(max_x, pos_x + bounds_w/2.0)
             min_y = min(min_y, pos_y - bounds_h/2.0)
             max_y = max(max_y, pos_y + bounds_h/2.0)
+            lyr_idx = elem['index']
             if name.endswith('_BTN'):
                 path_normal = glob.glob(os.path.join(args.assets_folder, name + '.normal*.png'))[0]
                 path_pressed = glob.glob(os.path.join(args.assets_folder, name + '.pressed*.png'))[0]
@@ -61,16 +58,7 @@ if __name__ == '__main__':
             img_normal = Image.open(path_normal)
             img_width = img_normal.width
             img_height = img_normal.height
-
-            # heuristic: use the original image width/height if it's close enough (this seems to give better results)
-            if abs((img_width - bounds_w)/img_width) <= 0.5:
-                w = img_width
-                h = img_height
-            else:
-                w = bounds_w
-                h = bounds_h
-
-            assets.append((name, fname_normal, fname_pressed, pos_x, pos_y, w, h))
+            assets.append((name, fname_normal, fname_pressed, pos_x, pos_y, img_width, img_height, lyr_idx))
 
     wp_width = max_x - min_x
     wp_height = max_y - min_y
@@ -82,12 +70,12 @@ if __name__ == '__main__':
     <style type="text/css">'''
 
     def norm_name(name):
-        return 'e{}'.format(hash(name))
+        return re.sub(r'[^a-zA-Z0-9]', '_', name.replace(' ', '_').replace('@', ''))
 
-    for (name, fname_normal, fname_pressed, pos_x, pos_y, w, h) in reversed(assets):
-        html_src += f"#{norm_name(name)} {{ background: url('{fname_normal}'); background-size: {w}px {h}px; }}"
+    for (name, fname_normal, fname_pressed, pos_x, pos_y, w, h, lyr_idx) in assets:
+        html_src += f"#{norm_name(name)} {{ background: url('{fname_normal}'); background-size: {w}px {h}px; z-index: {lyr_idx}; }}"
         if fname_pressed is not None:
-            html_src += f"#{norm_name(name)}:hover {{ background: url('{fname_pressed}'); background-size: {w}px {h}px; }}"
+            html_src += f"#{norm_name(name)}:hover {{ background: url('{fname_pressed}'); background-size: {w}px {h}px; }}\n"
 
     html_src += f'''
     </style>
@@ -96,7 +84,7 @@ if __name__ == '__main__':
     <div style="width: {wp_width}px; height: {wp_height}px;">
     '''
 
-    for (name, fname_normal, fname_pressed, pos_x, pos_y, w, h) in reversed(assets):
+    for (name, fname_normal, fname_pressed, pos_x, pos_y, w, h, lyr_idx) in assets:
         x = pos_x - min_x
         y = pos_y - min_y
         style = 'position: absolute;\n'

@@ -31,7 +31,7 @@ var doc = activeDocument;
 var originPath = activeDocument.path;
 // Get document name, without extension
 var fname = doc.name.match(/(.*)\.[^\.]+$/)[1];
-var versionNum = '1.2';
+var versionNum = '1.3';
 var outFolder = new Folder(originPath + "/out");
 var iosFolder = new Folder(originPath + "/out/" + fname + "_iPhone_assets");
 var androidFolder = new Folder(originPath + "/out/" + fname + "_Android_assets");
@@ -466,12 +466,15 @@ function resize(width, height) {
 // return saved layer assets info
 function recordLayerInfo(layer) {
     try {
-        var x = (layer.bounds[0].value + layer.bounds[2].value) / 2;
-        var y = (layer.bounds[1].value + layer.bounds[3].value) / 2;
-        var width = layer.bounds[2].value - layer.bounds[0].value;
-        var height = layer.bounds[3].value - layer.bounds[1].value;
-        var info = layer.name + ": centered at (" + x + ", " + y + "), width: " + width + "px, height: " + height + "px. \n";
-        return info;
+       var info = "{";
+       info += '"name": "' + layer.name.replace('"', '\\"')  + '", ';
+       info += '"x":' + ((layer.bounds[0].value + layer.bounds[2].value) / 2) + ', ';
+       info += '"y":' + ((layer.bounds[1].value + layer.bounds[3].value) / 2) + ', ';
+       info += '"width":' + (layer.bounds[2].value - layer.bounds[0].value) + ', ';
+       info += '"height":' + (layer.bounds[3].value - layer.bounds[1].value) + ', ';
+       info += '"index":' + layer.itemIndex;
+       info += "}\n"; 
+       return info;
     }
     catch(e) {
         // when layer type is TEXT, error would resolve since it didn't have bounds property
@@ -906,7 +909,7 @@ cutAll.onClick = function () {
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
     if (saveLyrInfo && lyrInfo != "") {
-        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
+        writeFile("" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     progress.close();
@@ -967,7 +970,7 @@ cutSubgroups.onClick = function () {
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
     if (saveLyrInfo && lyrInfo != "") {
-        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
+        writeFile("" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     progress.close();
@@ -1022,7 +1025,7 @@ cutSelected.onClick = function () {
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
     if (saveLyrInfo && lyrInfo != "") {
-        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
+        writeFile("" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     progress.close();
