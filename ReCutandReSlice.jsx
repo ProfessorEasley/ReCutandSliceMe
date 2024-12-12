@@ -29,9 +29,10 @@ Array.prototype.indexOf = function (item) {
 // Global variables
 var doc = activeDocument;
 var originPath = activeDocument.path;
+var savedLayerInfo = {}; // info saved while layers are being processed
 // Get document name, without extension
 var fname = doc.name.match(/(.*)\.[^\.]+$/)[1];
-var versionNum = '1.3';
+var versionNum = '1.4';
 var outFolder = new Folder(originPath + "/out");
 var iosFolder = new Folder(originPath + "/out/" + fname + "_iPhone_assets");
 var androidFolder = new Folder(originPath + "/out/" + fname + "_Android_assets");
@@ -45,7 +46,7 @@ var platform = [];
 // Array resolution in ['xhdpi', 'hdpi', 'mdpi', 'ldpi']
 var resolution = [];
 // Sentient variable
-var saveLyrInfo = false;
+var mockupWebpage = false;
 
 // Export all assets in a .psd file
 function exportAll() {
@@ -64,8 +65,8 @@ function exportAll() {
     // Resumes back to original ruler units
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
-    if (saveLyrInfo && lyrInfo != "") {
-        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
+    if (lyrInfo != "") {
+        writeFile(lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     app.activeDocument.activeHistoryState = savedState;
@@ -94,8 +95,8 @@ function exportSelected() {
     // Resumes back to original ruler units
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
-    if (saveLyrInfo && lyrInfo != "") {
-        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
+    if (lyrInfo != "") {
+        writeFile(lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     app.activeDocument.activeHistoryState = savedState;
@@ -148,8 +149,8 @@ function exportSubgroups() {
     // Resumes back to original ruler units
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
-    if (saveLyrInfo && lyrInfo != "") {
-        writeFile("ASSET NAME, COORDINATE, WIDTH, HEIGHT\n" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
+    if (lyrInfo != "") {
+        writeFile(lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     app.activeDocument.activeHistoryState = savedState;
@@ -292,6 +293,9 @@ function saveLayer(lname) {
         alert('NO_PLATFORM_SELECTED');
         return;
     }
+
+    savedLayerInfo[lname] = { imageWidth: activeDocument.width.value, imageHeight: activeDocument.height.value };
+
     if (platform.indexOf('ios') != -1) {
         if (!iosFolder.exists) iosFolder.create();
 
@@ -410,35 +414,36 @@ function hasRectBoundLayer(obj) {
 
 // prepare layer for exporting
 function prepare(layer, isBtn, mergeOpt) {
-    try{
-    activeDocument.activeLayer = layer;
-    // Duplicate passed layer to modify on it
-    dupLayers();
+    try {
+        activeDocument.activeLayer = layer;
+        // Duplicate passed layer to modify on it
+        dupLayers();
 
-    // if layer is a button group, reverse back to its parent group for exporting this button group
-    if (isBtn) {
-        layer = layer.parent;
-    }
-
-    // If there is a Shape layer with name "#" at the top of layer group
-    if (hasRectBoundLayer(layer)) {
+        // if layer is a button group, reverse back to its parent group for exporting this button group
         if (isBtn) {
-            var boundLayer = layer.artLayers[0];
-        } else {
-            var boundLayer = activeDocument.activeLayer.artLayers[0];
-            boundLayer.visible = false;
+            layer = layer.parent;
         }
-        activeDocument.crop(boundLayer.bounds);
-    } else {
-        // Trims the transparent area around the image
-        // activeDocument.trim(TrimType.TRANSPARENT, true, true, true, true);
-        trim();
-    }
 
-    if (mergeOpt == undefined || mergeOpt == true) {
-        activeDocument.mergeVisibleLayers();
-    }
-    return 0;
+        // If there is a Shape layer with name "#" at the top of layer group
+        if (hasRectBoundLayer(layer)) {
+            if (isBtn) {
+                var boundLayer = layer.artLayers[0];
+            } else {
+                var boundLayer = activeDocument.activeLayer.artLayers[0];
+                boundLayer.visible = false;
+            }
+            activeDocument.crop(boundLayer.bounds);
+        } else {
+            // Trims the transparent area around the image
+            // activeDocument.trim(TrimType.TRANSPARENT, true, true, true, true);
+            trim();
+        }
+
+        if (mergeOpt == undefined || mergeOpt == true) {
+            activeDocument.mergeVisibleLayers();
+        }
+    
+        return 0;
     } catch(e) {
         //alert(e);
         $.writeln("exception: " + e.stack);
@@ -466,15 +471,19 @@ function resize(width, height) {
 // return saved layer assets info
 function recordLayerInfo(layer) {
     try {
-       var info = "{";
-       info += '"name": "' + layer.name.replace('"', '\\"')  + '", ';
-       info += '"x":' + ((layer.bounds[0].value + layer.bounds[2].value) / 2) + ', ';
-       info += '"y":' + ((layer.bounds[1].value + layer.bounds[3].value) / 2) + ', ';
-       info += '"width":' + (layer.bounds[2].value - layer.bounds[0].value) + ', ';
-       info += '"height":' + (layer.bounds[3].value - layer.bounds[1].value) + ', ';
-       info += '"index":' + layer.itemIndex;
-       info += "}\n"; 
-       return info;
+        var x = ((layer.bounds[0].value + layer.bounds[2].value) / 2);
+        var y = ((layer.bounds[1].value + layer.bounds[3].value) / 2);
+        var info = "{";
+        info += '"name": "' + layer.name.replace('"', '\\"')  + '", ';
+        info += '"x":' + x + ', ';
+        info += '"y":' + y + ', ';
+        info += '"relX":' + (x / doc.width.value) + ', ';
+        info += '"relY":' + (y / doc.height.value) + ', ';
+        info += '"width":' + (layer.bounds[2].value - layer.bounds[0].value) + ', ';
+        info += '"height":' + (layer.bounds[3].value - layer.bounds[1].value) + ', ';
+        info += '"index":' + layer.itemIndex;
+        info += "},\n"; 
+        return info;
     }
     catch(e) {
         // when layer type is TEXT, error would resolve since it didn't have bounds property
@@ -482,6 +491,119 @@ function recordLayerInfo(layer) {
         
         return layer.name + " object has no boundary to calculate layer position and other information. \n";
     }
+}
+
+function writeWebpageMockup(contentsStr, path) {
+    eval("assetsInfo = " + contentsStr); // work-around to parse JSON
+    
+    var fileLineFeed = "Macintosh";
+    if ($.os.search(/windows/i) !== -1) {
+        fileLineFeed = "Windows";
+    }
+
+    var f = new File(path + "/mockup.html");
+    var mockupPath = f.fsName;
+    f.remove();
+    f.open('a');
+    f.linefeed = fileLineFeed;
+
+    var assets = assetsInfo.assets;
+    var items = [];
+    for (var i = 0; i < assets.length; ++i) {
+        var asset = assets[i];
+        var name = asset.name;
+        var fileName = name.replace(' ', '-');
+        var posX = asset.x;
+        var posY = asset.y;
+        var boundsW = asset.width;
+        var boundsH = asset.height;
+        var lyrIdx = asset.index;
+        var btnSuffixIdx = name.lastIndexOf('_BTN');
+        var savedNameNormal;
+        var savedNamePressed;
+        var savedLayerNameNormal;
+        if (btnSuffixIdx >= 0 && btnSuffixIdx == name.length - 4) {
+            savedNameNormal = fileName + ".normal.png";
+            savedNamePressed = fileName + ".pressed.png";
+            savedLayerNameNormal = name + ".normal";
+        } else {
+            savedNameNormal = fileName + '.png';
+            savedLayerNameNormal = name;
+            savedNamePressed = null;
+        }
+        if (savedLayerNameNormal in savedLayerInfo) {
+            var imgWidth = savedLayerInfo[savedLayerNameNormal].imageWidth;
+            var imgHeight = savedLayerInfo[savedLayerNameNormal].imageHeight;
+            items.push({name: name, savedNameNormal: savedNameNormal, savedNamePressed: savedNamePressed, 
+                        posX: posX, posY: posY, imgWidth: imgWidth, imgHeight: imgHeight, lyrIdx: lyrIdx});
+        }
+    }
+
+    function normName(name) {
+        var result = "";
+        for (var i = 0; i < name.length; ++i) {
+            var c = name.charCodeAt(i);
+            if (!(   (c >= 'a'.charCodeAt(0) && c <= 'z'.charCodeAt(0))
+                  || (c >= 'A'.charCodeAt(0) && c <= 'Z'.charCodeAt(0))
+                  || (c >= '0'.charCodeAt(0) && c <= '9'.charCodeAt(0))))
+            {
+                result += '_';
+            } else
+            {
+                result += name.charAt(i);
+            }
+        }
+        return result;
+    }
+
+    var wpWidth = assetsInfo.documentWidth;
+    var wpHeight = assetsInfo.documentHeight;
+
+    var htmlSrc = '<!doctype html>\n';
+    htmlSrc += '<html>\n';
+    htmlSrc += '<head>\n';
+    htmlSrc += '<style type="text/css">\n';
+    for (var i = 0; i < items.length; ++i) {
+        var item = items[i];
+        htmlSrc += '#' + normName(item.name) + ' {\n';
+        htmlSrc += "background: url('" + item.savedNameNormal + "');\n";
+        htmlSrc += "background-size: " + item.imgWidth + "px " + item.imgHeight + "px;\n";
+        htmlSrc += "z-index: " + item.lyrIdx + ";\n";
+        htmlSrc += '}\n';
+        if (item.savedNamePressed) {
+            htmlSrc += "#" + normName(item.name) + ":hover {\n";
+            htmlSrc += "background: url('" + item.savedNamePressed + "');\n";
+            htmlSrc += "}\n";
+        }
+    }
+    htmlSrc += '</style>\n';
+    htmlSrc += '</head>\n';
+    htmlSrc += '<body>\n';
+    htmlSrc += '<div style="width: ' + wpWidth + 'px; height: ' + wpHeight + 'px;">';
+    for (var i = 0; i < items.length; ++i) {
+        var item = items[i];
+        var style = 'position: absolute;';
+        style += 'width: ' + item.imgWidth + 'px;';
+        style += 'height: ' + item.imgHeight + 'px;';
+        style += 'left: ' + (item.posX - item.imgWidth / 2) + 'px;';
+        style += 'top: ' + (item.posY - item.imgHeight / 2) + 'px;';
+        htmlSrc += '<div id="' + normName(item.name) + '" style="' + style + '"></div>\n';
+    }
+    htmlSrc += '</div>\n';
+    htmlSrc += '</body>\n';
+    htmlSrc += '</html>\n';
+
+    f.write(htmlSrc);
+    f.close();
+
+    // try opening the webpage
+    try {
+        if (File.fs === "Macintosh") {
+            app.system('open "' + mockupPath + '"');
+        } else {
+            app.system('start "" "' + mockupPath + '"');
+        }
+    } catch (e) {}
 }
 
 // save assets info into txt file
@@ -494,15 +616,26 @@ function writeFile(lyrInfo, path) {
         fileLineFeed = "Windows";
     }
 
+    var contents = "{\n";
+    contents += '"documentWidth": ' + doc.width.value + ",\n";
+    contents += '"documentHeight": ' + doc.height.value + ",\n";
+    contents += '"assets": [' + "\n";
+    contents += lyrInfo.substring(0, lyrInfo.length - 2); // remove trailing comma and newline
+    contents += "\n]\n";
+    contents += "}";
+
     try {
-        var f = new File(path + "/exported_assets_info.txt");
+        var f = new File(path + "/exported_assets_info.json");
         f.remove();
         f.open('a');
         f.linefeed = fileLineFeed;
-        f.write(lyrInfo);
+        f.write(contents);
         f.close()
     } catch (e) { }
-
+    
+    if (mockupWebpage) {
+        writeWebpageMockup(contents, path);
+    }
 }
 
 // return an array of layers' id that are being selected
@@ -752,10 +885,9 @@ resolList.selection = 0;
 var divider = other.add("panel", undefined, undefined, { name: "divider" });
 divider.alignment = "fill";
 
-// var LayerInfo = other.add("radiobutton", undefined, undefined, { name: "LayerInfo" });
-var LayerInfo = other.add("checkbox", undefined, "LayerInfo");
-LayerInfo.text = "Export Cut Infos";
-LayerInfo.value = saveLyrInfo;
+var GenerateMockupWebpage = other.add("checkbox", undefined, "GenerateMockupWebpage");
+GenerateMockupWebpage.text = "Mockup Webpage";
+GenerateMockupWebpage.value = mockupWebpage;
 
 // Part III. UI LOGIC
 // ========
@@ -821,7 +953,11 @@ function loadConfig() {
     }
     // statictext2.text = "working";
     platform = platformChosen;
-    saveLyrInfo = LayerInfo.value;
+    mockupWebpage = GenerateMockupWebpage.value;
+    if (mockupWebpage && (platformChosen.indexOf('macos') == -1 || platformChosen.length > 1)) {
+        alert("Webpage mockup option is only available for MacOS");
+        return -1;
+    }
     return 0;
 }
 
@@ -908,8 +1044,8 @@ cutAll.onClick = function () {
     // Resumes back to original ruler units
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
-    if (saveLyrInfo && lyrInfo != "") {
-        writeFile("" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
+    if (lyrInfo != "") {
+        writeFile(lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     progress.close();
@@ -969,8 +1105,8 @@ cutSubgroups.onClick = function () {
     // Resumes back to original ruler units
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
-    if (saveLyrInfo && lyrInfo != "") {
-        writeFile("" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
+    if (lyrInfo != "") {
+        writeFile(lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     progress.close();
@@ -1024,8 +1160,8 @@ cutSelected.onClick = function () {
     // Resumes back to original ruler units
     preferences.rulerUnits = defaultRulerUnits;
     // Writes stored layer info into single file
-    if (saveLyrInfo && lyrInfo != "") {
-        writeFile("" + lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
+    if (lyrInfo != "") {
+        writeFile(lyrInfo, getAssetsOutputFolder() || originPath + "/out/");
     }
 
     progress.close();
