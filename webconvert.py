@@ -1,5 +1,5 @@
 # Usage:
-# 1. Run the Cut and Slice me script in photoshop with the "Export Cut Infos" option enabled
+# 1. Run the Cut and Slice me script in photoshop
 # 2. Run this script as "python webconvert.py <assetdir>", where <assetdir> is the directory where the cut assets were placed
 # 3. This script will generate an HTML file "webpage.html" inside the asset directory, which will automatically be opened in your web browser
 
